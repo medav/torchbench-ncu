@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NCU_PATH=${NCU_PATH:-/opt/nvidia/nsight-compute/2023.3.1/ncu}
+NCU_PATH=ncu
 
 $NCU_PATH \
     --target-processes all \
