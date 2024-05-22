@@ -21,3 +21,5 @@ logs/
 scripts/scribe.py
 .userbenchmark/
 torchbench.egg-info/
+results-*
+results
