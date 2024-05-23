@@ -86,4 +86,4 @@ if __name__ == '__main__':
     print(f'{"Kernel".ljust(50)}  {"Latency".rjust(10)} {"SM".rjust(6)} {"Tensor".rjust(6)} {"DRAM".rjust(6)}')
     k : Kernel
     for k in kerns:
-        print(f'{shortstr(k.name, maxlen=50).ljust(50)}: {k.ncu_lat_ns:10.0f} {k.sm_util:6.2f} {k.tensor_util:6.2f} {k.dram_util:6.2f}')
+        print(f'{shortstr(k.sanitized_name, maxlen=50).ljust(50)}: {k.ncu_lat_ns:10.0f} {k.sm_util:6.2f} {k.tensor_util:6.2f} {k.dram_util:6.2f}')
