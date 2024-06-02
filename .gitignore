@@ -23,3 +23,5 @@ scripts/scribe.py
 torchbench.egg-info/
 results-*
 results
+*.nsys-rep
+*.sqlite

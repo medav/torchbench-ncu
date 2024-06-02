@@ -38,4 +38,4 @@ with torch.cuda.profiler.profile():
     t1 = time.perf_counter()
 
 
-print(t1 - t0)
+print(f'Runtime: {t1 - t0}')
