@@ -13,7 +13,6 @@ metrics = ','.join([
 
 
 def get_runtime(cmdline, ignore_no_kernels=False):
-    # print(' '.join(cmdline))
     stdout = subprocess.check_output(cmdline).decode('utf-8')
     for line in stdout.split('\n'):
         if 'No kernels were profiled' in line and not ignore_no_kernels:
@@ -29,6 +28,8 @@ def get_runtime(cmdline, ignore_no_kernels=False):
 def count_kernels_nsys(prog_args):
     cmdline = [
         'nsys', 'profile', '--stats=true',
+        '-o', 'report',
+        '-f', 'true',
         *prog_args
     ]
 
@@ -62,50 +63,59 @@ def make_prog_cmdline(mode, model, num_iters):
 def ncu_baseline_cmdline(prog_cmdline):
     return [
         'ncu',
-        '--clock-control', 'none',
-        '--cache-control', 'none',
+        # '--clock-control', 'none',
+        # '--cache-control', 'none',
         '--target-processes', 'all',
         # '--profile-from-start', 'no',
         '--metrics', metrics,
-        '--kernel-id', ':::111111111111',
+        '--kernel-id', '::Kernel:111111111111',
         *prog_cmdline
     ]
 
-def ncu_sampled_cmdline(prog_cmdline, kid):
+def ncu_sampled_cmdline(prog_cmdline, samp):
+    samp_str = {
+        100: '.*00|1',
+        1000: '.*000|1',
+        10000: '.*0000|1',
+        100000: '.*00000|1',
+    }[samp]
+
     return [
         'ncu',
-        '--clock-control', 'none',
-        '--cache-control', 'none',
+        # '--clock-control', 'none',
+        # '--cache-control', 'none',
         '--target-processes', 'all',
         # '--profile-from-start', 'no',
         '--metrics', metrics,
         '--kill', 'no',
-        '-c', '1',
-        '-s', str(kid),
+        '--kernel-id', f'::Kernel:{samp_str}',
         *prog_cmdline
     ]
 
 
-# nk1 = count_kernels_nsys(make_prog_cmdline(mode, model, 1))
-# nk10 = count_kernels_nsys(make_prog_cmdline(mode, model, 10))
+nk1 = count_kernels_nsys(make_prog_cmdline(mode, model, 1))
+nk10 = count_kernels_nsys(make_prog_cmdline(mode, model, 10))
 
-# slope = (nk10 - nk1) / 9
-# intercept = nk1 - slope
-# print(f'Kernel count: {nk1} {nk10} {slope} {intercept}')
+slope = (nk10 - nk1) / 9
+intercept = nk1 - slope
+
+TARGET_NUM_KERNELS = 10000
+
+num_iters = int((TARGET_NUM_KERNELS - intercept) / slope)
+prog_cmdline = make_prog_cmdline(mode, model, num_iters)
+
+actual_num_kerns = count_kernels_nsys(prog_cmdline)
+print(f'Actual number of kernels: {actual_num_kerns}')
+
+no_ncu = get_runtime(prog_cmdline)
+ncu_baseline = get_runtime(ncu_baseline_cmdline(prog_cmdline), ignore_no_kernels=True)
+
+ncu_100 = get_runtime(ncu_sampled_cmdline(prog_cmdline, 100))
+ncu_1000 = get_runtime(ncu_sampled_cmdline(prog_cmdline, 1000))
+
+print(f'Runtimes: {no_ncu:.2f} {ncu_baseline:.2f} {ncu_100:.2f} {ncu_1000:.2f}')
+print(f'Slowdown for 1/100: {ncu_100 / no_ncu:.2f}x {ncu_100 / ncu_baseline:.2f}x')
+print(f'Slowdown for 1/1000: {ncu_1000 / no_ncu:.2f}x {ncu_1000 / ncu_baseline:.2f}x')
 
 
-for samp in [1000, 10000, 100000]:
-    print(f'Sampling: {samp} kernels')
-    num_iters = ceildiv(samp, app_kerns)
-    prog_cmdline = make_prog_cmdline(mode, model, num_iters)
-
-    actual_num_kerns = count_kernels_nsys(prog_cmdline)
-    print(f'    + Actual number of kernels: {actual_num_kerns}')
-
-    no_ncu = get_runtime(prog_cmdline)
-    ncu_baseline = get_runtime(ncu_baseline_cmdline(prog_cmdline), ignore_no_kernels=True)
-    ncu_sampled = get_runtime(ncu_sampled_cmdline(prog_cmdline, actual_num_kerns - 1))
-
-    print(f'    + Runtimes: {no_ncu:.2f} {ncu_baseline:.2f} {ncu_sampled:.2f}')
-    print(f'    + Slowdown for 1/{samp}: {ncu_sampled / no_ncu:.2f}x {ncu_sampled / ncu_baseline:.2f}x')
-
+print(f'{model},{mode},{app_kerns},{actual_num_kerns},{no_ncu:.2f},{ncu_baseline:.2f},{ncu_100:.2f},{ncu_1000:.2f}')
